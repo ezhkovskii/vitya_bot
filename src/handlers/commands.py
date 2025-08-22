@@ -30,6 +30,11 @@ async def get_fucking_great_advice(message: Message):
         else:
             logger.error(f"Не удалось получить совет: {advice_text}, response_status: {response.status_code}")
 
+@router.message(Command("shit"))
+async def get_shit(message: Message):
+    text = 'Ненавижу себя за то что так много рассказываю о себе людям'
+    await message.reply(text)
+
 
 # @router.message(Command("all"), F.chat.type.in_({"group", "supergroup"}))
 # async def call_all_members(message: Message):
