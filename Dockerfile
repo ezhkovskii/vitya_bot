@@ -11,10 +11,5 @@ RUN uv sync --frozen --no-dev
 
 COPY src/ ./src/
 
-RUN useradd --create-home --shell /bin/bash appuser && \
-    chown -R appuser:appuser /app
-
-USER appuser
-
 
 CMD ["uv", "run", "src/main.py"]
