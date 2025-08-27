@@ -11,7 +11,6 @@ router = Router()
 
 @router.message(Command("pacanskoe"))
 async def get_pacan_quote(message: Message):
-    logger.info(f'ЧАТ {message.chat.id}')
     async with httpx.AsyncClient() as client:
         response = await client.get(settings.PACANSKOE_API_URL)
         quote = response.json()

@@ -11,5 +11,5 @@ class ChatRestrictionMiddleware(BaseMiddleware):
         self,
         handler: Callable[[types.TelegramObject, dict[str, Any]], Awaitable[Any]], event: types.TelegramObject, data: dict[str, Any]
     ) -> Any:
-        if event.chat.id == settings.MAIN_CHAT_ID:
+        if event.chat.id == settings.MAIN_CHAT_ID or event.chat.id > 0:
             return await handler(event, data)
