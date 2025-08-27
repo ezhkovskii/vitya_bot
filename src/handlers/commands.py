@@ -21,22 +21,6 @@ async def get_pacan_quote(message: Message):
             logger.error(f"Не удалось получить цитату: {quote}, response_status: {response.status_code}")
 
 
-@router.message(Command("fucking_great_advice"))
-async def get_fucking_great_advice(message: Message):
-    async with httpx.AsyncClient() as client:
-        response = await client.get(settings.FUCKING_GREAT_ADVICE_API_URL)
-        advice = response.json()
-        if advice_text := advice.get('text'):
-            await message.reply(advice_text)
-        else:
-            logger.error(f"Не удалось получить совет: {advice_text}, response_status: {response.status_code}")
-
-@router.message(Command("shit"))
-async def get_shit(message: Message):
-    text = 'Ненавижу себя за то что так много рассказываю о себе людям'
-    await message.reply(text)
-
-
 # @router.message(Command("all"), F.chat.type.in_({"group", "supergroup"}))
 # async def call_all_members(message: Message):
 #     rows = await get_users_from_chat(message.chat.id)
