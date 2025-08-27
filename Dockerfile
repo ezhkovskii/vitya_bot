@@ -3,6 +3,8 @@ FROM python:3.13-slim-bookworm
 
 RUN pip install --no-cache-dir uv
 
+RUN apt-get update && apt-get install -y ffmpeg
+
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
@@ -10,11 +12,5 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
 COPY src/ ./src/
-
-RUN useradd --create-home --shell /bin/bash appuser && \
-    chown -R appuser:appuser /app
-
-USER appuser
-
 
 CMD ["uv", "run", "src/main.py"]

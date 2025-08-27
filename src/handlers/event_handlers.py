@@ -1,11 +1,34 @@
+import os
+import tempfile
 from aiogram import Bot, Router, F
 from aiogram.filters import JOIN_TRANSITION, LEAVE_TRANSITION, ChatMemberUpdatedFilter
 from aiogram.types import ChatMemberUpdated, Message
+from torch import mode
 
+from config.config import settings
 from log import logger
-
+import whisper
 
 router = Router()
+
+
+@router.message(F.voice)
+async def handle_voice(message: Message, bot: Bot):
+    model= whisper.load_model(settings.WHISPER_MODEL)
+    voice_file = await bot.get_file(message.voice.file_id)
+    voice_path = voice_file.file_path
+    
+    # Создаем временный файл
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.ogg') as temp_audio:
+        await bot.download_file(voice_path, temp_audio.name)
+        
+        # Расшифровываем аудио
+        transcription = model.transcribe(temp_audio.name, fp16=False)
+        logger.info(transcription['text'])
+        # Удаляем временный файл
+        os.unlink(temp_audio.name)
+    
+    await message.reply(transcription['text'])
 
 
 # @router.my_chat_member(ChatMemberUpdatedFilter(JOIN_TRANSITION))
