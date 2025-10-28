@@ -12,7 +12,6 @@ class ChatRestrictionMiddleware(BaseMiddleware):
         self,
         handler: Callable[[types.TelegramObject, dict[str, Any]], Awaitable[Any]], event: types.TelegramObject, data: dict[str, Any]
     ) -> Any:
-        logger.info(f"Chat ID: {event.chat.id}, Chat title: {event.chat.title}")
-        return await handler(event, data)
-        # if event.chat.id == settings.MAIN_CHAT_ID or event.chat.id > 0:
-        #     return await handler(event, data)
+        logger.info(f"Chat ID: {event.chat.id}, Chat title: {event.chat.title or event.chat.username}")
+        if event.chat.id in settings.ALLOWED_CHATS:
+            return await handler(event, data)
