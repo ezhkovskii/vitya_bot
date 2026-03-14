@@ -1,4 +1,5 @@
 from aiogram import Router
+from aiogram.enums import ParseMode
 from aiogram.filters import Command
 from aiogram.types import Message
 import httpx
@@ -59,4 +60,4 @@ async def get_joke(message: Message):
                     logger.error(str(exc))
 
         if best_text:
-            await message.reply(best_text)
+            await message.reply(best_text, parse_mode=ParseMode.HTML)

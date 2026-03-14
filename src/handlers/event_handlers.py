@@ -1,6 +1,12 @@
+import asyncio
+import os
+import shutil
+import tempfile
+
 from aiogram import Bot, Router, F
 from aiogram.filters import JOIN_TRANSITION, LEAVE_TRANSITION, ChatMemberUpdatedFilter
-from aiogram.types import ChatMemberUpdated, Message
+from aiogram.types import ChatMemberUpdated, Message, FSInputFile
+from aiogram.exceptions import TelegramBadRequest, TelegramEntityTooLarge
 
 from log import logger
 
@@ -8,41 +14,66 @@ from log import logger
 router = Router()
 
 
-# @router.my_chat_member(ChatMemberUpdatedFilter(JOIN_TRANSITION))
-# async def track_chat_members_join(event: ChatMemberUpdated, bot: Bot):
-#     chat = event.chat
-#     new_chat_member = event.new_chat_member.user
 
-#     # Если бот был добавлен в чат — сохраняем чат
-#     if new_chat_member.id == bot.id:
-#         logger.info(f'Join bot to chat {chat.id}')
-#         await add_chat(chat.id, chat.title)
-#         return
+@router.message(
+    F.chat.type == "private",
+    (F.video | F.audio | F.document),
+)
+async def convert_media_to_voice(message: Message, bot: Bot):
+    """
+    Принимает аудио/видео от пользователя в личном чате и отправляет обратно голосовое сообщение.
+    """
 
-#     # Пользователь присоединился
-#     logger.info(f'Join user {new_chat_member.id} to chat {chat.id}')
-#     await add_user(new_chat_member.id, chat.id, new_chat_member.username, new_chat_member.first_name, new_chat_member.last_name)
+    media = None
 
+    if message.video:
+        media = message.video
+    elif message.audio:
+        media = message.audio
+    elif message.document and message.document.mime_type:
+        if message.document.mime_type.startswith("audio/") or message.document.mime_type.startswith("video/"):
+            media = message.document
 
-# @router.my_chat_member(ChatMemberUpdatedFilter(LEAVE_TRANSITION))
-# async def track_chat_members_leave(event: ChatMemberUpdated, bot: Bot):
-#     chat = event.chat
-#     left_user = event.new_chat_member.user
+    if not media:
+        return
 
-#     if left_user.id == bot.id:
-#         logger.info(f'Delete bot from chat {chat.id}')
-#         await delete_chat(chat.id)
-#         return
+    temp_dir = tempfile.mkdtemp(prefix="vitya_media_")
+    input_path = os.path.join(temp_dir, "input")
+    output_path = os.path.join(temp_dir, "voice.ogg")
 
-#     # Пользователь покинул чат — удаляем связь user ↔ chat
-#     logger.info(f'Remove user {left_user.id} from chat {chat.id}')
-#     await remove_user(left_user.id, chat.id)
+    try:
+        file_info = await bot.get_file(media.file_id)
+        await bot.download_file(file_info.file_path, destination=input_path)
 
+        process = await asyncio.create_subprocess_exec(
+            "ffmpeg",
+            "-y",
+            "-i",
+            input_path,
+            "-vn",
+            "-acodec",
+            "libopus",
+            "-b:a",
+            "24k",
+            "-ar",
+            "16000",
+            "-ac",
+            "1",
+            output_path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await process.communicate()
 
-# @router.message(F.chat.type.in_({"group", "supergroup"}) & ~F.new_chat_member & ~F.left_chat_member & ~F.text.startswith('/'))
-# async def track_first_message(message: Message):
-#     chat = message.chat
-#     user = message.from_user
-#     if not await exists_user_in_chat(user.id, chat.id):
-#         logger.info(f'Add user {user.id} to chat {chat.id}')
-#         await add_user(user.id, chat.id, user.username, user.first_name, user.last_name)
+        if process.returncode != 0 or not os.path.exists(output_path):
+            logger.error(f"ffmpeg convert error: {stderr.decode(errors='ignore')}")
+            await message.reply("Не получилось обработать файл :(")
+            return
+
+        voice = FSInputFile(output_path, filename="voice_message.ogg")
+        await message.answer_voice(voice)
+    except Exception as exc:
+        await message.reply(f"Произошла ошибка при обработке файла: {exc}")
+        logger.error(f"Error while converting media to voice: {exc}")
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
